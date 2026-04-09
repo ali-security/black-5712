@@ -10,12 +10,12 @@ permissions:
 
 jobs:
   comment:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: MatteoH2O1999/setup-python@v4
         with:
-          python-version: "*"
+          python-version: '*'
 
       - name: Install support dependencies
         run: |
@@ -36,8 +36,8 @@ jobs:
         uses: peter-evans/find-comment@f4499a714d59013c74a08789b48abe4b704364a0
         with:
           issue-number: ${{ steps.metadata.outputs.pr-number }}
-          comment-author: "github-actions[bot]"
-          body-includes: "diff-shades"
+          comment-author: github-actions[bot]
+          body-includes: diff-shades
 
       - name: Create or update PR comment
         if: steps.metadata.outputs.needs-comment == 'true'

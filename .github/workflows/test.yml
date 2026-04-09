@@ -3,13 +3,13 @@ name: Test
 on:
   push:
     paths-ignore:
-      - "docs/**"
-      - "*.md"
+      - docs/**
+      - '*.md'
 
   pull_request:
     paths-ignore:
-      - "docs/**"
-      - "*.md"
+      - docs/**
+      - '*.md'
 
 permissions:
   contents: read
@@ -23,15 +23,13 @@ jobs:
     # We want to run on external PRs, but not on our own internal PRs as they'll be run
     # by the push to the branch. Without this if check, checks are duplicated since
     # internal PRs match both the push and pull_request events.
-    if:
-      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
-      github.repository
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
 
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "pypy-3.7", "pypy-3.8"]
+        python-version: ['3.7', '3.8', '3.9', '3.10', pypy-3.7, pypy-3.8]
         os: [ubuntu-22.04, macOS-13, windows-2022]
 
     steps:
@@ -55,7 +53,7 @@ jobs:
         run: tox -e ci-py -- -v --color=yes
 
       - name: Unit tests (pypy)
-        if: "startsWith(matrix.python-version, 'pypy')"
+        if: startsWith(matrix.python-version, 'pypy')
         run: tox -e ci-pypy3 -- -v --color=yes
 
       - name: Upload coverage to Coveralls
@@ -86,9 +84,7 @@ jobs:
           debug: true
 
   uvloop:
-    if:
-      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
-      github.repository
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -104,7 +100,7 @@ jobs:
       - name: Set up latest Python
         uses: MatteoH2O1999/setup-python@v4
         with:
-          python-version: "*"
+          python-version: '*'
 
       - name: Install black with uvloop
         run: |
