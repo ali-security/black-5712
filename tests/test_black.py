@@ -45,6 +45,7 @@ from black.cache import get_cache_dir, get_cache_file
 from black.debug import DebugVisitor
 from black.output import color_diff, diff
 from black.report import Report
+from black.strings import lines_with_leading_tabs_expanded
 
 # Import other test classes
 from tests.util import (
@@ -1824,6 +1825,16 @@ class BlackTestCase(BlackBaseTestCase):
         err.match("invalid character")
         err.match(r"\(<unknown>, line 1\)")
 
+    def test_lines_with_leading_tabs_expanded(self) -> None:
+        # See CVE-2024-21503. Mostly test that this completes in a reasonable
+        # time.
+        payload = "\t" * 10_000
+        assert lines_with_leading_tabs_expanded(payload) == [payload]
+
+        tab = " " * 8
+        assert lines_with_leading_tabs_expanded("\tx") == [f"{tab}x"]
+        assert lines_with_leading_tabs_expanded("\t\tx") == [f"{tab}{tab}x"]
+        assert lines_with_leading_tabs_expanded("\tx\n  y") == [f"{tab}x", "  y"]
 
 class TestCaching:
     def test_get_cache_dir(
@@ -1984,6 +1995,15 @@ class TestCaching:
             assert not workspace.exists()
             black.write_cache({}, [], mode)
             assert workspace.exists()
+
+    def test_cache_file_path_ignores_python_cell_magic_separators(self) -> None:
+        mode = replace(DEFAULT_MODE, python_cell_magics={"../../../tmp/pwned"})
+        with cache_dir() as workspace:
+            cache_file = get_cache_file(mode)
+            assert cache_file.parent == workspace
+            assert "/" not in cache_file.name
+            assert ".." not in cache_file.name
+            assert "../../../tmp/pwned" not in mode.get_cache_key()
 
     @event_loop()
     def test_failed_formatting_does_not_get_cached(self) -> None:

@@ -4,7 +4,9 @@ import ast
 import collections
 import dataclasses
 import secrets
+import string
 import sys
+from collections.abc import Collection
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
@@ -168,7 +170,25 @@ def mask_cell(src: str) -> Tuple[str, List[Replacement]]:
     return transformed, replacements
 
 
-def get_token(src: str, magic: str) -> str:
+def create_token(n_chars: int) -> str:
+    """Create a randomly generated token that is n_chars characters long."""
+    assert n_chars > 0
+    if n_chars == 1:
+        return secrets.choice(string.ascii_letters)
+    if n_chars < 4:
+        return "_" + "".join(
+            secrets.choice(string.ascii_letters + string.digits + "_")
+            for _ in range(n_chars - 1)
+        )
+    n_bytes = max(n_chars // 2 - 1, 1)
+    token = secrets.token_hex(n_bytes)
+    if len(token) + 3 > n_chars:
+        token = token[: n_chars - 2]
+    assert token
+    return f'b"{token}"'
+
+
+def get_token(src: str, magic: str, existing_tokens: Collection[str] = ()) -> str:
     """Return randomly generated token to mask IPython magic with.
 
     For example, if 'magic' was `%matplotlib inline`, then a possible
@@ -177,11 +197,11 @@ def get_token(src: str, magic: str) -> str:
     not already present anywhere else in the cell.
     """
     assert magic
-    nbytes = max(len(magic) // 2 - 1, 1)
-    token = TOKEN_HEX(nbytes)
+    n_chars = len(magic)
+    token = create_token(n_chars)
     counter = 0
-    while token in src:
-        token = TOKEN_HEX(nbytes)
+    while token in src or token in existing_tokens:
+        token = create_token(n_chars)
         counter += 1
         if counter > 100:
             raise AssertionError(
@@ -189,9 +209,7 @@ def get_token(src: str, magic: str) -> str:
                 "Please report a bug on https://github.com/psf/black/issues.  "
                 f"The magic might be helpful: {magic}"
             ) from None
-    if len(token) + 2 < len(magic):
-        token = f"{token}."
-    return f'"{token}"'
+    return token
 
 
 def replace_cell_magics(src: str) -> Tuple[str, List[Replacement]]:
@@ -244,6 +262,7 @@ def replace_magics(src: str) -> Tuple[str, List[Replacement]]:
     The replacement, along with the transformed code, are returned.
     """
     replacements = []
+    existing_tokens: set[str] = set()
     magic_finder = MagicFinder()
     magic_finder.visit(ast.parse(src))
     new_srcs = []
@@ -259,8 +278,9 @@ def replace_magics(src: str) -> Tuple[str, List[Replacement]]:
                 offsets_and_magics[0].col_offset,
                 offsets_and_magics[0].magic,
             )
-            mask = get_token(src, magic)
+            mask = get_token(src, magic, existing_tokens)
             replacements.append(Replacement(mask=mask, src=magic))
+            existing_tokens.add(mask)
             line = line[:col_offset] + mask
         new_srcs.append(line)
     return "\n".join(new_srcs), replacements
@@ -280,7 +300,9 @@ def unmask_cell(src: str, replacements: List[Replacement]) -> str:
         foo = bar
     """
     for replacement in replacements:
-        src = src.replace(replacement.mask, replacement.src)
+        if src.count(replacement.mask) != 1:
+            raise NothingChanged
+        src = src.replace(replacement.mask, replacement.src, 1)
     return src
 
 

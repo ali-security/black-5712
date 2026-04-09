@@ -207,6 +207,13 @@ class Mode:
             )
         else:
             version_str = "-"
+        # Always hash python_cell_magics to prevent path traversal via cache filename
+        features_and_magics = (
+            ",".join(str(v.value) for v in sorted(self.target_versions))
+            + "@"
+            + ",".join(sorted(self.python_cell_magics))
+        )
+        features_and_magics_hash = sha256(features_and_magics.encode()).hexdigest()[:32]
         parts = [
             version_str,
             str(self.line_length),
@@ -217,6 +224,6 @@ class Mode:
             str(int(self.magic_trailing_comma)),
             str(int(self.experimental_string_processing)),
             str(int(self.preview)),
-            sha256((",".join(sorted(self.python_cell_magics))).encode()).hexdigest(),
+            features_and_magics_hash,
         ]
         return ".".join(parts)
